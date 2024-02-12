@@ -1,27 +1,27 @@
 #ifndef EPISODE_HPP
 #define EPISODE_HPP
 #include <Eigen/Core>
-#include <iostream>
 #include <chrono>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
 #include <memory>
+#include <sstream>
 
-#include "src/params.hpp"
-#include "src/sim/PlanarQuadrotor.hpp"
-#include "src/sim/Visualizer.hpp"
 #include "src/opt/Individual.hpp"
+#include "src/params.hpp"
+
+#include "src/sim/single_rigid_body_dynamics.hpp"
 
 #include "algevo/src/algevo/algo/cem.hpp"
 
+#include "robot_dart/gui/magnum/graphics.hpp"
+#include "robot_dart/robot_dart_simu.hpp"
+
 using Algo = algevo::algo::CrossEntropyMethod<pq::opt::ControlIndividual>;
 
-namespace pq
-{
-    namespace train
-    {
-        class Episode
-        {
+namespace pq {
+    namespace train {
+        class Episode {
         public:
             Episode()
             {
@@ -30,38 +30,109 @@ namespace pq
                 _params.dim = pq::opt::ControlIndividual::dim;
                 _params.pop_size = pq::Value::Param::Opt::pop_size;
                 _params.num_elites = pq::Value::Param::Opt::num_elites;
-                _params.max_value = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::max_value);
-                _params.min_value = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::min_value);
-                _params.init_std = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_std);
+                _params.max_value
+                    = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::max_value);
+                _params.min_value
+                    = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::min_value);
+                _params.init_std
+                    = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_std);
             }
 
-            std::vector<double> run(pq::sim::Visualizer &v)
-            {
-                _visualize = true;
-                _v = v;
-                return _run();
-            }
-
+            /*
+            std::vector<double> run(robot_dart::RobotDARTSimu& simu,
+                std::shared_ptr<robot_dart::Robot>& body,
+                std::shared_ptr<robot_dart::Robot>& fr_foot,
+                std::shared_ptr<robot_dart::Robot>& fl_foot,
+                std::shared_ptr<robot_dart::Robot>& rr_foot,
+                std::shared_ptr<robot_dart::Robot>& rl_foot)*/
             std::vector<double> run()
             {
-                _visualize = false;
-                return _run();
+                _params.init_mu = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_mu);
+
+                srbd::SingleRigidBodyDynamics srbd_obj
+                    = srbd::SingleRigidBodyDynamics::create_robot(srbd::RobotType::ANYmal);
+                srbd_obj.set_dt(pq::Value::Param::Sim::dt);
+
+                int episode_idx = (_run_iter - 1) * pq::Value::Param::Train::episodes
+                        * pq::Value::Param::Train::collection_steps
+                    + (_episode - 1) * pq::Value::Param::Train::collection_steps;
+
+                std::vector<double> errors(pq::Value::Param::Train::collection_steps, 0);
+
+                for (int i = 0; i < pq::Value::Param::Train::collection_steps; ++i) {
+                    pq::Value::set_init_state(srbd_obj.base_position(), srbd_obj.base_velocity(),
+                        srbd_obj.base_orientation(), srbd_obj.base_angular_velocity(),
+                        srbd_obj.feet_positions(), srbd_obj.feet_phases());
+
+                    Algo cem(_params);
+
+                    for (int j = 0; j < pq::Value::Param::Opt::steps; ++j) {
+                        cem.step();
+                    }
+
+                    _params.init_mu = cem.best();
+                    Eigen::Vector<double, 12> controls = cem.best().segment(0, 12);
+
+                    srbd_obj.integrate({controls.segment(0, 3), controls.segment(3, 3),
+                        controls.segment(6, 3), controls.segment(9, 3)});
+
+                    errors[i]
+                        = (pq::Value::Param::Opt::target - srbd_obj.base_position()).squaredNorm();
+
+                    Eigen::Vector6d acc
+                        = pq::opt::dynamic_model_predict(pq::Value::init_base_position,
+                            pq::Value::init_base_orientation, pq::Value::init_base_angular_vel,
+                            pq::Value::init_feet_positions, pq::Value::init_feet_phases,
+                            {controls.segment(0, 3), controls.segment(3, 3), controls.segment(6, 3),
+                                controls.segment(9, 3)},
+                            true);
+
+                    std::cout << "Acc: " << acc.transpose() << std::endl;
+                    std::cout << "Last acc: " << srbd_obj._last_acc.transpose() << std::endl;
+                    std::cout << (srbd_obj._last_acc - acc).transpose() << std::endl;
+
+                    /*
+                    if (simu.schedule(simu.control_freq())) {
+                        // Need to set position based on srbd_obj state
+                        // For anymal, this requires inverse kinematics
+                        Eigen::Isometry3d tf;
+                        tf.translation() = srbd_obj.base_position();
+                        tf.linear() = srbd_obj.base_orientation();
+                        body->set_base_pose(tf);
+                        auto feet_positions = srbd_obj.feet_positions();
+                        fr_foot->set_base_pose(
+                            (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[0]).finished());
+                        fl_foot->set_base_pose(
+                            (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[1]).finished());
+                        rr_foot->set_base_pose(
+                            (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[2]).finished());
+                        rl_foot->set_base_pose(
+                            (Eigen::Vector<double, 6>() << 0, 0, 0,
+                        feet_positions[3]).finished());
+                    }
+
+                    simu.step_world();
+                    */
+
+                    /*
+                    _train_input.col(i)
+                        = (Eigen::Vector<double, 8>() << pq::Value::init_state, controls)
+                              .finished();
+                    _train_target.col(i) = p.get_last_ddq()
+                        - pq::opt::dynamic_model_predict(pq::Value::init_state, controls);
+                    */
+                }
+
+                ++_episode;
+
+                return errors;
             }
 
-            Eigen::MatrixXd get_train_input()
-            {
-                return _train_input;
-            }
+            Eigen::MatrixXd get_train_input() { return _train_input; }
 
-            Eigen::MatrixXd get_train_target()
-            {
-                return _train_target;
-            }
+            Eigen::MatrixXd get_train_target() { return _train_target; }
 
-            void set_run(int run)
-            {
-                _run_iter = run;
-            }
+            void set_run(int run) { _run_iter = run; }
 
         private:
             Eigen::MatrixXd _train_input;
@@ -69,91 +140,8 @@ namespace pq
             Algo::Params _params;
             int _episode = 1;
             int _run_iter = -1;
-            bool _visualize = false;
-            pq::sim::Visualizer _v;
-
-            std::vector<double> _run()
-            {
-                _params.init_mu = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_mu);
-
-                pq::sim::PlanarQuadrotor p(pq::Value::Constant::mass, pq::Value::Constant::inertia, pq::Value::Constant::length);
-
-                double control_freq = 0;
-                int count = 0;
-                std::chrono::duration<double> elapsed = std::chrono::duration<double>::zero();
-                std::chrono::duration<double> total_time = std::chrono::duration<double>::zero();
-                auto real_start = std::chrono::high_resolution_clock::now();
-
-                int episode_idx = (_run_iter - 1) * pq::Value::Param::Train::episodes * pq::Value::Param::Train::collection_steps + (_episode - 1) * pq::Value::Param::Train::collection_steps;
-
-                std::vector<double> errors(pq::Value::Param::Train::collection_steps, 0);
-
-                for (int i = 0; i < pq::Value::Param::Train::collection_steps; ++i)
-                {
-                    total_time += std::chrono::high_resolution_clock::now() - real_start;
-                    real_start = std::chrono::high_resolution_clock::now();
-                    if (pq::Value::Param::Sim::sync_with_real_time)
-                    {
-                        if (p.get_sim_time() > total_time.count())
-                        {
-                            std::this_thread::sleep_for(std::chrono::milliseconds((int)(1000 * (p.get_sim_time() - total_time.count()))));
-                        }
-                    }
-                    pq::Value::init_state = p.get_state();
-
-                    auto start = std::chrono::high_resolution_clock::now();
-
-                    Algo cem(_params);
-
-                    for (int j = 0; j < pq::Value::Param::Opt::steps; ++j)
-                    {
-                        cem.step();
-                    }
-                    auto end = std::chrono::high_resolution_clock::now();
-
-                    elapsed += end - start;
-
-                    _params.init_mu = cem.best();
-                    Eigen::Vector2d controls = cem.best().segment(0, 2);
-
-                    p.update(controls, pq::Value::Param::Sim::dt);
-                    errors[i] = (pq::Value::target.segment(0, 6) - p.get_state().segment(0, 6)).squaredNorm();
-
-                    _train_input.col(i) = (Eigen::Vector<double, 8>() << pq::Value::init_state, controls).finished();
-                    _train_target.col(i) = p.get_last_ddq() - pq::opt::dynamic_model_predict(pq::Value::init_state, controls);
-
-                    std::stringstream ss;
-                    ss << std::fixed << std::setprecision(2) << "Control frequency: " << control_freq
-                       << " Hz, angle: " << p.get_state()[2] * 360 / M_PI
-                       << " deg, time: " << p.get_sim_time()
-                       << " sec (ratio " << pq::Value::Param::Sim::dt / std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - real_start).count()
-                       << "), MPC mass: " << pq::Value::Param::Opt::mass
-                       << " kg, episode: " << _episode;
-                    if (_run_iter != -1)
-                    {
-                        ss << ", run: " << _run_iter;
-                    }
-                    if (_visualize)
-                    {
-                        _v.set_message(ss.str());
-                        _v.show(p, {pq::Value::Param::Opt::target_x, pq::Value::Param::Opt::target_y});
-                    }
-
-                    ++count;
-                    if (elapsed.count() > 1)
-                    {
-                        control_freq = count / elapsed.count();
-                        count = 0;
-                        elapsed = std::chrono::duration<double>::zero();
-                    }
-                }
-
-                ++_episode;
-
-                return errors;
-            }
         };
-    }
-}
+    } // namespace train
+} // namespace pq
 
 #endif
