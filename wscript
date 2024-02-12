@@ -26,6 +26,7 @@ import magnum
 import magnum_integration
 import magnum_plugins
 import robot_dart
+import tbb
 
 
 def options(opt):
@@ -40,6 +41,7 @@ def options(opt):
     opt.load("magnum_integration")
     opt.load("magnum_plugins")
     opt.load("robot_dart")
+    opt.load("tbb")
 
 
 def configure(conf):
@@ -57,6 +59,7 @@ def configure(conf):
     conf.load("magnum_integration")
     conf.load("magnum_plugins")
     conf.load("robot_dart")
+    conf.load("tbb")
 
     conf.check_boost(lib="regex system filesystem", min_version="1.58")
     # we need pthread for video saving
@@ -68,6 +71,7 @@ def configure(conf):
     conf.env["magnum_dep_libs"] = (
         "MeshTools Primitives Shaders SceneGraph GlfwApplication Text MagnumFont"
     )
+    conf.check_tbb(required=True)
     if conf.env["DEST_OS"] == "darwin":
         conf.env["magnum_dep_libs"] += " WindowlessCglApplication"
     else:
@@ -162,6 +166,7 @@ def summary(bld):
 
 
 def build(bld):
+    # todo add tbb
     if (
         len(bld.env.INCLUDES_DART) == 0
         or len(bld.env.INCLUDES_EIGEN) == 0
@@ -171,7 +176,7 @@ def build(bld):
         bld.fatal("Some libraries were not found! Cannot proceed!")
 
     #### compilation of experiment
-    libs = "BOOST EIGEN DART PTHREAD ROBOT_DART"
+    libs = "BOOST EIGEN DART PTHREAD ROBOT_DART TBB"
 
     if bld.get_env()["BUILD_GRAPHIC"]:
         bld.program(
@@ -183,6 +188,6 @@ def build(bld):
             ],
             includes=["./", "./simple_nn/src", "./algevo/src"],
             uselib="ROBOT_DART_GRAPHIC " + bld.env["magnum_libs"] + libs,
-            defines=["GRAPHIC"],
+            defines=["GRAPHIC", "USE_TBB_ONEAPI"],
             target="main",
         )

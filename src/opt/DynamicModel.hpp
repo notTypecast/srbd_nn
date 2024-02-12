@@ -62,8 +62,8 @@ namespace pq {
 
             if (print) {
                 // std::cout << "M: " << M << std::endl;
-                std::cout << "F: " << F.transpose() << std::endl;
-                std::cout << "v: " << v.transpose() << std::endl;
+                // std::cout << "F: " << F.transpose() << std::endl;
+                // std::cout << "v: " << v.transpose() << std::endl;
             }
 
             return acc;

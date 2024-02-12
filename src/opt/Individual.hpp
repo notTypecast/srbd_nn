@@ -8,6 +8,8 @@
 
 #include "src/sim/utils.hpp"
 
+#include <dart/math/Geometry.hpp>
+
 namespace pq {
     namespace opt {
         void integrate_step(const srbd::Vec6d& acc, const double dt, srbd::Vec3d& base_position,
@@ -66,9 +68,11 @@ namespace pq {
                     integrate_step(acc, pq::Value::Param::Sim::dt, base_position, base_vel,
                         base_orientation, base_angular_vel, feet_positions, feet_phases);
 
-                    cost += (pq::Value::Param::Opt::target - base_position).squaredNorm()
-                        + 3.5 * i / dim * base_vel.squaredNorm()
-                        + 3.5 * i / dim * base_angular_vel.squaredNorm();
+                    cost += (pq::Value::Param::Opt::target - base_position).norm()
+                        + dart::math::logMap(pq::Value::Param::Opt::target_orientation
+                            * base_orientation.transpose())
+                              .norm()
+                        + 3.5 * i / dim * base_vel.norm() + 3.5 * i / dim * base_angular_vel.norm();
                 }
 
                 return -cost;

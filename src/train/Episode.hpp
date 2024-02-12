@@ -38,14 +38,13 @@ namespace pq {
                     = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_std);
             }
 
-            /*
             std::vector<double> run(robot_dart::RobotDARTSimu& simu,
                 std::shared_ptr<robot_dart::Robot>& body,
                 std::shared_ptr<robot_dart::Robot>& fr_foot,
                 std::shared_ptr<robot_dart::Robot>& fl_foot,
                 std::shared_ptr<robot_dart::Robot>& rr_foot,
-                std::shared_ptr<robot_dart::Robot>& rl_foot)*/
-            std::vector<double> run()
+                std::shared_ptr<robot_dart::Robot>& rl_foot)
+            // std::vector<double> run()
             {
                 _params.init_mu = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_mu);
 
@@ -67,7 +66,9 @@ namespace pq {
                     Algo cem(_params);
 
                     for (int j = 0; j < pq::Value::Param::Opt::steps; ++j) {
-                        cem.step();
+                        cem.step(true);
+                        if (j % 1000 == 0)
+                            std::cout << "Step " << j << ": " << cem.best_value() << std::endl;
                     }
 
                     _params.init_mu = cem.best();
@@ -85,20 +86,21 @@ namespace pq {
                             pq::Value::init_feet_positions, pq::Value::init_feet_phases,
                             {controls.segment(0, 3), controls.segment(3, 3), controls.segment(6, 3),
                                 controls.segment(9, 3)},
-                            true);
+                            false);
 
+                    /*
                     std::cout << "Acc: " << acc.transpose() << std::endl;
                     std::cout << "Last acc: " << srbd_obj._last_acc.transpose() << std::endl;
                     std::cout << (srbd_obj._last_acc - acc).transpose() << std::endl;
 
-                    /*
+                    std::cout << errors[i] << std::endl;
+                    */
+
                     if (simu.schedule(simu.control_freq())) {
                         // Need to set position based on srbd_obj state
                         // For anymal, this requires inverse kinematics
-                        Eigen::Isometry3d tf;
-                        tf.translation() = srbd_obj.base_position();
-                        tf.linear() = srbd_obj.base_orientation();
-                        body->set_base_pose(tf);
+                        body->set_base_pose(srbd_obj.base_tf());
+
                         auto feet_positions = srbd_obj.feet_positions();
                         fr_foot->set_base_pose(
                             (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[0]).finished());
@@ -107,12 +109,10 @@ namespace pq {
                         rr_foot->set_base_pose(
                             (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[2]).finished());
                         rl_foot->set_base_pose(
-                            (Eigen::Vector<double, 6>() << 0, 0, 0,
-                        feet_positions[3]).finished());
+                            (Eigen::Vector<double, 6>() << 0, 0, 0, feet_positions[3]).finished());
                     }
 
                     simu.step_world();
-                    */
 
                     /*
                     _train_input.col(i)
