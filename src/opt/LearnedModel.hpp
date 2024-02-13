@@ -20,7 +20,7 @@ namespace pq {
                 assert(hidden_layers.size() > 0 && "expected at least one hidden layer");
                 _network.add_layer<simple_nn::FullyConnectedLayer<simple_nn::ReLU>>(
                     8, hidden_layers[0]);
-                for (int i = 1; i < hidden_layers.size(); ++i) {
+                for (ulong i = 1; i < hidden_layers.size(); ++i) {
                     _network.add_layer<simple_nn::FullyConnectedLayer<simple_nn::ReLU>>(
                         hidden_layers[i - 1], hidden_layers[i]);
                 }

@@ -56,7 +56,7 @@ namespace pq {
 
                 double cost = 0;
 
-                for (int i = 0; i < dim; i += 12) {
+                for (ulong i = 0; i < dim; i += 12) {
                     std::vector<srbd::Vec3d> feet_forces;
                     for (int j = 0; j < n_feet; ++j) {
                         feet_forces.push_back(x.block<1, 3>(0, i + 3 * j).transpose());
@@ -68,11 +68,13 @@ namespace pq {
                     integrate_step(acc, pq::Value::Param::Sim::dt, base_position, base_vel,
                         base_orientation, base_angular_vel, feet_positions, feet_phases);
 
-                    cost += (pq::Value::Param::Opt::target - base_position).norm()
+                    // cost += acc.norm();
+
+                    cost += 5 * (pq::Value::Param::Opt::target - base_position).norm()
                         + dart::math::logMap(pq::Value::Param::Opt::target_orientation
                             * base_orientation.transpose())
                               .norm()
-                        + 3.5 * i / dim * base_vel.norm() + 3.5 * i / dim * base_angular_vel.norm();
+                        + base_vel.norm() + base_angular_vel.norm();
                 }
 
                 return -cost;

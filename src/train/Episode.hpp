@@ -32,8 +32,10 @@ namespace pq {
                 _params.num_elites = pq::Value::Param::Opt::num_elites;
                 _params.max_value
                     = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::max_value);
-                _params.min_value
-                    = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::min_value);
+                _params.min_value = Algo::x_t(_params.dim);
+                for (int i = 0; i < _params.dim; i += 3) {
+                    _params.min_value.segment(i, 3) = pq::Value::Param::Opt::min_value;
+                }
                 _params.init_std
                     = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_std);
             }
@@ -44,17 +46,12 @@ namespace pq {
                 std::shared_ptr<robot_dart::Robot>& fl_foot,
                 std::shared_ptr<robot_dart::Robot>& rr_foot,
                 std::shared_ptr<robot_dart::Robot>& rl_foot)
-            // std::vector<double> run()
             {
                 _params.init_mu = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::init_mu);
 
                 srbd::SingleRigidBodyDynamics srbd_obj
                     = srbd::SingleRigidBodyDynamics::create_robot(srbd::RobotType::ANYmal);
                 srbd_obj.set_dt(pq::Value::Param::Sim::dt);
-
-                int episode_idx = (_run_iter - 1) * pq::Value::Param::Train::episodes
-                        * pq::Value::Param::Train::collection_steps
-                    + (_episode - 1) * pq::Value::Param::Train::collection_steps;
 
                 std::vector<double> errors(pq::Value::Param::Train::collection_steps, 0);
 
@@ -67,26 +64,28 @@ namespace pq {
 
                     for (int j = 0; j < pq::Value::Param::Opt::steps; ++j) {
                         cem.step(true);
-                        if (j % 1000 == 0)
-                            std::cout << "Step " << j << ": " << cem.best_value() << std::endl;
                     }
+                    std::cout << "Best cost: " << cem.best_value() << std::endl;
 
                     _params.init_mu = cem.best();
                     Eigen::Vector<double, 12> controls = cem.best().segment(0, 12);
+                    std::cout << "Controls: " << controls.transpose() << std::endl;
+                    std::cout << "Acceleration caused: "
+                              << pq::opt::dynamic_model_predict(pq::Value::init_base_position,
+                                     pq::Value::init_base_orientation,
+                                     pq::Value::init_base_angular_vel,
+                                     pq::Value::init_feet_positions, pq::Value::init_feet_phases,
+                                     {controls.segment(0, 3), controls.segment(3, 3),
+                                         controls.segment(6, 3), controls.segment(9, 3)},
+                                     true)
+                                     .transpose()
+                              << std::endl;
 
                     srbd_obj.integrate({controls.segment(0, 3), controls.segment(3, 3),
                         controls.segment(6, 3), controls.segment(9, 3)});
 
                     errors[i]
                         = (pq::Value::Param::Opt::target - srbd_obj.base_position()).squaredNorm();
-
-                    Eigen::Vector6d acc
-                        = pq::opt::dynamic_model_predict(pq::Value::init_base_position,
-                            pq::Value::init_base_orientation, pq::Value::init_base_angular_vel,
-                            pq::Value::init_feet_positions, pq::Value::init_feet_phases,
-                            {controls.segment(0, 3), controls.segment(3, 3), controls.segment(6, 3),
-                                controls.segment(9, 3)},
-                            false);
 
                     /*
                     std::cout << "Acc: " << acc.transpose() << std::endl;

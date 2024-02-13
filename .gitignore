@@ -5,3 +5,4 @@ TODO.txt
 .waf3-2.0.20-36f5354d605298f6a89c09e0c7ef6c1d/
 build/
 __pycache__/
+*.mp4

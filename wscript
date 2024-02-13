@@ -188,6 +188,6 @@ def build(bld):
             ],
             includes=["./", "./simple_nn/src", "./algevo/src"],
             uselib="ROBOT_DART_GRAPHIC " + bld.env["magnum_libs"] + libs,
-            defines=["GRAPHIC", "USE_TBB_ONEAPI"],
+            defines=["GRAPHIC", "USE_TBB", "USE_TBB_ONEAPI"],
             target="main",
         )

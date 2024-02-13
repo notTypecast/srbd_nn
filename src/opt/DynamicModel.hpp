@@ -51,7 +51,6 @@ namespace pq {
                 const_cast<double*>(&feet_forces[0][0]), static_cast<int>(3 * n_feet));
 
             for (size_t i = 0; i < n_feet; i++) {
-
                 if (((feet_phases[i] % pq::Value::T) < pq::Value::T_swing)) {
                     F.segment(i * 3, 3).setZero();
                 }

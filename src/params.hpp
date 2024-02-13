@@ -21,7 +21,7 @@ namespace pq {
                 constexpr double dt = 0.01; // simulation time step
             } // namespace Sim
             namespace Opt {
-                Eigen::Vector3d target = {0., 0., 0.42}; // target position for base
+                Eigen::Vector3d target = {.5, .5, 0.42}; // target position for base
                 Eigen::Matrix3d target_orientation
                     = Eigen::Matrix3d::Identity(); // target orientation for base
                 double g = Constant::g; // MPC gravity
@@ -32,17 +32,18 @@ namespace pq {
                         1.85452968, -0.00018922, -0.00062895, -0.00018922, 1.97309185)
                           .finished(); // MPC inertia
                 Eigen::Matrix<double, 3, 3> inertia_inv = inertia.inverse(); // inverse of inertia
-                constexpr int steps = 2000; // MPC steps
+                constexpr int steps = 80; // MPC steps
                 constexpr int horizon
                     = 100; // MPC horizon (number of control inputs per individual)
-                constexpr int pop_size = 200; // population size
-                constexpr int num_elites = 32; // number of elites
+                constexpr int pop_size = 128; // population size
+                constexpr int num_elites = 8; // number of elites
                 constexpr double max_value
-                    = Constant::mass * Constant::g; // maximum control input force TODO
-                constexpr double min_value = 0.0; // minimum control input force
+                    = Constant::mass * Constant::g; // maximum control input force
+                Eigen::Vector3d min_value = (Eigen::Vector3d() << -max_value, -max_value, 0)
+                                                .finished(); // minimum control input force
                 constexpr double init_mu
                     = 0.25 * Constant::mass * Constant::g; // initial mean for CEM
-                constexpr double init_std = 0.3; // initial standard deviation for CEM
+                constexpr double init_std = 40; // initial standard deviation for CEM
             } // namespace Opt
             namespace NN {
                 constexpr int epochs = 10000; // number of epochs for training
