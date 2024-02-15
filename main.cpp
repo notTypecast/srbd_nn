@@ -21,8 +21,6 @@ using Algo = algevo::algo::CrossEntropyMethod<pq::opt::ControlIndividual>;
 
 int main(int argc, char** argv)
 {
-    // pq::Value::learned_model = std::make_unique<pq::opt::NNModel>(std::vector<int>{12, 6, 4});
-
     // Create robotdart robot
     /*
     std::pair<std::string, std::string> workaround;
@@ -71,15 +69,20 @@ int main(int argc, char** argv)
     std::vector<std::vector<double>> errors_per_episode(
         pq::Value::Param::Train::runs * pq::Value::Param::Train::episodes);
 
-    for (int i = 0; i < 1; ++i) {
-        pq::Value::Param::Opt::g = pq::Value::Constant::g;
+    pq::Value::learned_model = std::make_unique<pq::opt::NNModel>(std::vector<int>{12, 6, 4},
+        pq::Value::Param::NN::input_size, pq::Value::Param::NN::output_size);
 
-        // std::cout << "Running with g = " << pq::Value::Param::Opt::g << std::endl;
+    std::vector<double> gravity_values = {18, 36, 100};
+
+    for (int i = 0; i < gravity_values.size(); ++i) {
+        pq::Value::Param::Opt::g_vec[2] = -gravity_values[i];
+
+        std::cout << "Running with g = " << -pq::Value::Param::Opt::g_vec[2] << std::endl;
 
         for (int j = 0; j < pq::Value::Param::Train::runs; ++j) {
             std::srand(std::time(NULL));
             std::cout << "Run " << j << std::endl;
-            // pq::Value::learned_model->reset();
+            pq::Value::learned_model->reset();
             pq::train::Episode episode;
             episode.set_run(j + 1);
 
@@ -101,19 +104,17 @@ int main(int argc, char** argv)
                 }
                 */
 
-                /*
                 pq::Value::learned_model->train(
                     episode.get_train_input(), episode.get_train_target());
-                */
             }
             std::cout << std::endl;
         }
 
         std::ofstream out(
-            "sample_error/error_" + std::to_string(pq::Value::Param::Opt::g) + ".txt");
-        out << pq::Value::Param::Opt::g << " " << pq::Value::Param::Train::collection_steps << " "
-            << pq::Value::Param::Train::episodes << " " << pq::Value::Param::Train::runs << " "
-            << std::endl;
+            "sample_error/error_" + std::to_string(-pq::Value::Param::Opt::g_vec[2]) + ".txt");
+        out << -pq::Value::Param::Opt::g_vec[2] << " " << pq::Value::Param::Train::collection_steps
+            << " " << pq::Value::Param::Train::episodes << " " << pq::Value::Param::Train::runs
+            << " " << std::endl;
         for (int j = 0; j < pq::Value::Param::Train::runs; ++j) {
             int run_idx = j * pq::Value::Param::Train::episodes;
             for (int k = 0; k < pq::Value::Param::Train::episodes; ++k) {

@@ -25,15 +25,17 @@ namespace pq {
         public:
             Episode()
             {
-                _train_input = Eigen::MatrixXd(8, pq::Value::Param::Train::collection_steps);
-                _train_target = Eigen::MatrixXd(3, pq::Value::Param::Train::collection_steps);
+                _train_input = Eigen::MatrixXd(
+                    pq::Value::Param::NN::input_size, pq::Value::Param::Train::collection_steps);
+                _train_target = Eigen::MatrixXd(
+                    pq::Value::Param::NN::output_size, pq::Value::Param::Train::collection_steps);
                 _params.dim = pq::opt::ControlIndividual::dim;
                 _params.pop_size = pq::Value::Param::Opt::pop_size;
                 _params.num_elites = pq::Value::Param::Opt::num_elites;
                 _params.max_value
                     = Algo::x_t::Constant(_params.dim, pq::Value::Param::Opt::max_value);
                 _params.min_value = Algo::x_t(_params.dim);
-                for (int i = 0; i < _params.dim; i += 3) {
+                for (size_t i = 0; i < _params.dim; i += 3) {
                     _params.min_value.segment(i, 3) = pq::Value::Param::Opt::min_value;
                 }
                 _params.init_std
@@ -68,32 +70,25 @@ namespace pq {
                     std::cout << "Best cost: " << cem.best_value() << std::endl;
 
                     _params.init_mu = cem.best();
-                    Eigen::Vector<double, 12> controls = cem.best().segment(0, 12);
+                    Eigen::Vector<double, 12> controls = cem.best().segment(0, 12); // TODO remove
+                    std::vector<Eigen::Vector3d> controls_vec = {controls.segment(0, 3),
+                        controls.segment(3, 3), controls.segment(6, 3), controls.segment(9, 3)};
+
                     std::cout << "Controls: " << controls.transpose() << std::endl;
                     std::cout << "Acceleration caused: "
                               << pq::opt::dynamic_model_predict(pq::Value::init_base_position,
                                      pq::Value::init_base_orientation,
                                      pq::Value::init_base_angular_vel,
                                      pq::Value::init_feet_positions, pq::Value::init_feet_phases,
-                                     {controls.segment(0, 3), controls.segment(3, 3),
-                                         controls.segment(6, 3), controls.segment(9, 3)},
-                                     true)
+                                     controls_vec, true)
                                      .transpose()
                               << std::endl;
+                    std::cout << "Position: " << srbd_obj.base_position().transpose() << std::endl;
 
-                    srbd_obj.integrate({controls.segment(0, 3), controls.segment(3, 3),
-                        controls.segment(6, 3), controls.segment(9, 3)});
+                    srbd_obj.integrate(controls_vec);
 
                     errors[i]
                         = (pq::Value::Param::Opt::target - srbd_obj.base_position()).squaredNorm();
-
-                    /*
-                    std::cout << "Acc: " << acc.transpose() << std::endl;
-                    std::cout << "Last acc: " << srbd_obj._last_acc.transpose() << std::endl;
-                    std::cout << (srbd_obj._last_acc - acc).transpose() << std::endl;
-
-                    std::cout << errors[i] << std::endl;
-                    */
 
                     if (simu.schedule(simu.control_freq())) {
                         // Need to set position based on srbd_obj state
@@ -113,13 +108,15 @@ namespace pq {
 
                     simu.step_world();
 
-                    /*
-                    _train_input.col(i)
-                        = (Eigen::Vector<double, 8>() << pq::Value::init_state, controls)
-                              .finished();
-                    _train_target.col(i) = p.get_last_ddq()
-                        - pq::opt::dynamic_model_predict(pq::Value::init_state, controls);
-                    */
+                    _train_input.col(i) = pq::opt::convert_to_nn_input(srbd_obj.base_position(),
+                        srbd_obj.base_orientation(), srbd_obj.base_angular_velocity(),
+                        srbd_obj.feet_positions(), srbd_obj.feet_phases(), controls_vec);
+
+                    _train_target.col(i) = srbd_obj.last_acc()
+                        - pq::opt::dynamic_model_predict(pq::Value::init_base_position,
+                            pq::Value::init_base_orientation, pq::Value::init_base_angular_vel,
+                            pq::Value::init_feet_positions, pq::Value::init_feet_phases,
+                            controls_vec);
                 }
 
                 ++_episode;

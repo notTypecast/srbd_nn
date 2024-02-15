@@ -262,6 +262,7 @@ namespace srbd {
         const std::vector<Vec3d>& feet_max_bounds() const { return _feet_max_bounds; }
         const std::vector<Vec3d>& feet_ref_positions() const { return _feet_ref_positions; }
         const std::vector<size_t>& feet_phases() const { return _feet_phases; }
+        const Vec6d& last_acc() const { return _last_acc; }
 
         size_t n_feet() const { return _feet_ref_positions.size(); }
 
@@ -283,14 +284,13 @@ namespace srbd {
 
         static SingleRigidBodyDynamics create_robot(RobotType type);
 
-        Vec6d _last_acc; // TODO: remove this
-
     protected:
         // COM state
         Vec3d _base_position;
         Vec3d _base_vel;
         RotMat _base_orientation;
         Vec3d _base_angular_vel; // this is in local (COM) frame
+        Vec6d _last_acc; // last acceleration for training
 
         // Feet state
         std::vector<Vec3d> _feet_positions; // in world frame, these are more of

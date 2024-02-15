@@ -65,16 +65,23 @@ namespace pq {
                     srbd::Vec6d acc
                         = pq::opt::dynamic_model_predict(base_position, base_orientation,
                             base_angular_vel, feet_positions, feet_phases, feet_forces);
+
+                    if (pq::Value::learned_model->trained()) {
+                        acc += pq::Value::learned_model->predict(
+                            pq::opt::convert_to_nn_input(base_position, base_orientation,
+                                base_angular_vel, feet_positions, feet_phases, feet_forces));
+                    }
+
                     integrate_step(acc, pq::Value::Param::Sim::dt, base_position, base_vel,
                         base_orientation, base_angular_vel, feet_positions, feet_phases);
 
-                    // cost += acc.norm();
+                    double distance = (pq::Value::Param::Opt::target - base_position).norm();
 
-                    cost += 5 * (pq::Value::Param::Opt::target - base_position).norm()
+                    cost += 5 * distance
                         + dart::math::logMap(pq::Value::Param::Opt::target_orientation
                             * base_orientation.transpose())
                               .norm()
-                        + base_vel.norm() + base_angular_vel.norm();
+                        + 0.006 / distance * base_vel.norm() + base_angular_vel.norm();
                 }
 
                 return -cost;

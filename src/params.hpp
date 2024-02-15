@@ -21,11 +21,10 @@ namespace pq {
                 constexpr double dt = 0.01; // simulation time step
             } // namespace Sim
             namespace Opt {
-                Eigen::Vector3d target = {.5, .5, 0.42}; // target position for base
+                Eigen::Vector3d target = {1., 1., 0.2}; // target position for base
                 Eigen::Matrix3d target_orientation
                     = Eigen::Matrix3d::Identity(); // target orientation for base
-                double g = Constant::g; // MPC gravity
-                Eigen::Vector3d g_vec = {0.0, 0.0, -g}; // gravity vector
+                Eigen::Vector3d g_vec = {0.0, 0.0, -Constant::g}; // gravity vector
                 double mass = Constant::mass; // MPC mass
                 Eigen::Matrix<double, 3, 3> inertia
                     = (Eigen::Matrix3d() << 0.88201174, -0.00137526, -0.00062895, -0.00137526,
@@ -33,8 +32,7 @@ namespace pq {
                           .finished(); // MPC inertia
                 Eigen::Matrix<double, 3, 3> inertia_inv = inertia.inverse(); // inverse of inertia
                 constexpr int steps = 80; // MPC steps
-                constexpr int horizon
-                    = 100; // MPC horizon (number of control inputs per individual)
+                constexpr int horizon = 80; // MPC horizon (number of control inputs per individual)
                 constexpr int pop_size = 128; // population size
                 constexpr int num_elites = 8; // number of elites
                 constexpr double max_value
@@ -47,12 +45,15 @@ namespace pq {
             } // namespace Opt
             namespace NN {
                 constexpr int epochs = 10000; // number of epochs for training
-            }
+                constexpr int input_size
+                    = 43; // input size for NN, TODO: see if base_vel should be included
+                constexpr int output_size = 6; // output size for NN
+            } // namespace NN
             namespace Train {
                 constexpr int collection_steps
-                    = 150; // number of steps to collect data for training (per episode)
+                    = 200; // number of steps to collect data for training (per episode)
                 constexpr int episodes = 10; // number of episodes to train
-                constexpr int runs = 5; // number of runs to train (for averaging)
+                constexpr int runs = 1; // number of runs to train (for averaging)
             } // namespace Train
         } // namespace Param
 

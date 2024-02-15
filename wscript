@@ -166,12 +166,12 @@ def summary(bld):
 
 
 def build(bld):
-    # todo add tbb
     if (
         len(bld.env.INCLUDES_DART) == 0
         or len(bld.env.INCLUDES_EIGEN) == 0
         or len(bld.env.INCLUDES_BOOST) == 0
         or len(bld.env.INCLUDES_ROBOT_DART) == 0
+        or len(bld.env.INCLUDES_TBB) == 0
     ):
         bld.fatal("Some libraries were not found! Cannot proceed!")
 
