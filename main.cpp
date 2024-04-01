@@ -37,15 +37,15 @@ int main(int argc, char** argv)
     auto fr_foot = robot_dart::Robot::create_ellipsoid(
         {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Red(1.0), "fr_foot");
     auto fl_foot = robot_dart::Robot::create_ellipsoid(
-        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Red(1.0), "fl_foot");
+        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Blue(1.0), "fl_foot");
     auto rr_foot = robot_dart::Robot::create_ellipsoid(
-        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Red(1.0), "rr_foot");
+        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Red(0.5), "rr_foot");
     auto rl_foot = robot_dart::Robot::create_ellipsoid(
-        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Red(1.0), "rl_foot");
+        {0.02, 0.02, 0.02}, {0, 0, 0, 0, 0, 0}, "free", 1, dart::Color::Blue(0.5), "rl_foot");
 
     auto target = robot_dart::Robot::create_ellipsoid({0.05, 0.05, 0.05},
-        {0, 0, 0, pq::Value::Param::Opt::target[0], pq::Value::Param::Opt::target[1],
-            pq::Value::Param::Opt::target[2]},
+        {0, 0, 0, pq::Value::Param::Opt::CEM::target[0], pq::Value::Param::Opt::CEM::target[1],
+            pq::Value::Param::Opt::CEM::target[2]},
         "free", 1, dart::Color::Blue(1.0), "target");
 
     // Simulator
@@ -74,10 +74,10 @@ int main(int argc, char** argv)
 
     std::vector<double> gravity_values = {18, 36, 100};
 
-    for (int i = 0; i < gravity_values.size(); ++i) {
-        pq::Value::Param::Opt::g_vec[2] = -gravity_values[i];
+    for (const double& g : gravity_values) {
+        pq::Value::Param::Opt::CEM::g_vec[2] = -g;
 
-        std::cout << "Running with g = " << -pq::Value::Param::Opt::g_vec[2] << std::endl;
+        std::cout << "Running with g = " << -pq::Value::Param::Opt::CEM::g_vec[2] << std::endl;
 
         for (int j = 0; j < pq::Value::Param::Train::runs; ++j) {
             std::srand(std::time(NULL));
@@ -111,8 +111,8 @@ int main(int argc, char** argv)
         }
 
         std::ofstream out(
-            "sample_error/error_" + std::to_string(-pq::Value::Param::Opt::g_vec[2]) + ".txt");
-        out << -pq::Value::Param::Opt::g_vec[2] << " " << pq::Value::Param::Train::collection_steps
+            "sample_error/error_" + std::to_string(-pq::Value::Param::Opt::CEM::g_vec[2]) + ".txt");
+        out << -pq::Value::Param::Opt::CEM::g_vec[2] << " " << pq::Value::Param::Train::collection_steps
             << " " << pq::Value::Param::Train::episodes << " " << pq::Value::Param::Train::runs
             << " " << std::endl;
         for (int j = 0; j < pq::Value::Param::Train::runs; ++j) {

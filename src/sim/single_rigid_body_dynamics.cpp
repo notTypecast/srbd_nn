@@ -235,6 +235,13 @@ namespace srbd {
         _integrate(acc);
     }
 
+    void SingleRigidBodyDynamics::integrate(const std::vector<Vec3d>& feet_forces,
+        const std::vector<bool>& feet_phases, const Vec3d& external_force)
+    {
+        _phase_handler->set_phase_sequence(feet_phases);
+        integrate(feet_forces, external_force);
+    }
+
     /*
     std::vector<Vec3d> SingleRigidBodyDynamics::integrate(const Vec6d
     &a_desired, const Vec3d &external_force, bool use_external_force_in_qp)

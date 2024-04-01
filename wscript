@@ -185,6 +185,7 @@ def build(bld):
             source=[
                 "main.cpp",
                 "src/sim/single_rigid_body_dynamics.cpp",
+                "genetic_alg/src/GeneticAlg.cpp",
             ],
             includes=["./", "./simple_nn/src", "./algevo/src"],
             uselib="ROBOT_DART_GRAPHIC " + bld.env["magnum_libs"] + libs,

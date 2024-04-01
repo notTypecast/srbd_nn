@@ -20,16 +20,16 @@ namespace pq {
             for (size_t i = 0; i < n_feet; i++) {
                 // Linear part
                 M.block(0, i * 3, 3, 3)
-                    = srbd::Matrix::Identity(3, 3) / pq::Value::Param::Opt::mass;
+                    = srbd::Matrix::Identity(3, 3) / pq::Value::Param::Opt::CEM::mass;
                 // Angular part
-                M.block(3, i * 3, 3, 3) = pq::Value::Param::Opt::inertia_inv
+                M.block(3, i * 3, 3, 3) = pq::Value::Param::Opt::CEM::inertia_inv
                     * base_orientation.transpose()
                     * srbd::skew(feet_positions.at(i) - base_position);
             }
 
-            v.head(3) = pq::Value::Param::Opt::g_vec;
-            v.tail(3) = -pq::Value::Param::Opt::inertia_inv * srbd::skew(base_angular_vel)
-                * (pq::Value::Param::Opt::inertia * base_angular_vel);
+            v.head(3) = pq::Value::Param::Opt::CEM::g_vec;
+            v.tail(3) = -pq::Value::Param::Opt::CEM::inertia_inv * srbd::skew(base_angular_vel)
+                * (pq::Value::Param::Opt::CEM::inertia * base_angular_vel);
 
             return {M, v};
         }
@@ -38,9 +38,9 @@ namespace pq {
             // State
             const srbd::Vec3d& base_position, const srbd::RotMat& base_orientation,
             const srbd::Vec3d& base_angular_vel, const std::vector<srbd::Vec3d>& feet_positions,
-            const std::vector<size_t>& feet_phases,
+            const Eigen::Vector4i& feet_stances,
             // Control
-            const std::vector<srbd::Vec3d>& feet_forces, bool print = false)
+            const std::vector<srbd::Vec3d>& feet_forces)
         {
             srbd::Matrix M;
             srbd::Vec6d v;
@@ -51,19 +51,13 @@ namespace pq {
                 const_cast<double*>(&feet_forces[0][0]), static_cast<int>(3 * n_feet));
 
             for (size_t i = 0; i < n_feet; i++) {
-                if (((feet_phases[i] % pq::Value::T) < pq::Value::T_swing)) {
+                if (feet_stances[i] == 0) {
                     F.segment(i * 3, 3).setZero();
                 }
             }
 
             srbd::Vec6d acc = (M * F) + v;
             // acc.head(3) += external_force / pq::Value::Param::Opt::mass;
-
-            if (print) {
-                // std::cout << "M: " << M << std::endl;
-                // std::cout << "F: " << F.transpose() << std::endl;
-                // std::cout << "v: " << v.transpose() << std::endl;
-            }
 
             return acc;
         }

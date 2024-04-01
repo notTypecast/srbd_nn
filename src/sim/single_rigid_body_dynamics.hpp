@@ -14,9 +14,10 @@ namespace srbd {
 
     // Phase Handlers
     struct BasePhaseHandler {
+        virtual void set_phase_sequence(const std::vector<bool>& phase_sequence){};
         virtual bool is_swing(size_t phase_counter) const = 0;
         virtual bool is_phase_change(size_t phase_counter) const = 0;
-        virtual double kappa_foot(double dt) const = 0;
+        virtual double kappa_foot(double dt, size_t phase_counter = 0) const = 0;
 
         virtual std::unique_ptr<BasePhaseHandler> clone() const = 0;
     };
@@ -37,11 +38,63 @@ namespace srbd {
             return ((phase_counter % T) == 0) && T_swing > 0;
         }
 
-        double kappa_foot(double dt) const override { return 2. * (T - T_swing) * dt; }
+        double kappa_foot(double dt, size_t phase_counter = 0) const override
+        {
+            return 2. * (T - T_swing) * dt;
+        }
 
         std::unique_ptr<BasePhaseHandler> clone() const override
         {
             return std::make_unique<DefaultPhaseHandler>(T, T_swing);
+        }
+    };
+
+    // Predefined phase sequence
+    // 0: swing, 1: stance
+    struct PredefinedPhaseHandler : public BasePhaseHandler {
+        std::vector<bool> phase_sequence; // current phase sequence
+        std::vector<bool> phase_change; // phase change per foot on this step
+        std::vector<size_t> swing_counts,
+            swing_counts_prev; // swing counts per foot (and memory for kappa)
+
+        PredefinedPhaseHandler()
+            : phase_sequence(std::vector<bool>(4, false)),
+              phase_change(std::vector<bool>(4, false)),
+              swing_counts(std::vector<size_t>(4, 0)),
+              swing_counts_prev(std::vector<size_t>(4, 0))
+        {
+        }
+
+        void set_phase_sequence(const std::vector<bool>& phase_sequence_) override
+        {
+            phase_sequence = phase_sequence_;
+            for (size_t i = 0; i < 4; ++i) {
+                phase_change[i] = false;
+                if (!phase_sequence[i]) {
+                    ++swing_counts[i];
+                }
+                else if (swing_counts[i] > 0) {
+                    phase_change[i] = true;
+                    swing_counts_prev[i] = swing_counts[i];
+                    swing_counts[i] = 0;
+                }
+            }
+        }
+
+        bool is_swing(size_t foot_idx) const override { return !phase_sequence[foot_idx]; }
+
+        bool is_phase_change(size_t foot_idx) const override { return phase_change[foot_idx]; }
+
+        // only works if phase change
+        double kappa_foot(double dt, size_t foot_idx) const override
+        {
+            // TODO: what if this is the first phase?
+            return 2. * swing_counts_prev[foot_idx] * dt;
+        }
+
+        std::unique_ptr<BasePhaseHandler> clone() const override
+        {
+            return std::make_unique<PredefinedPhaseHandler>();
         }
     };
 
@@ -240,6 +293,8 @@ namespace srbd {
         // integrating using non-linear dynamics
         void integrate(
             const std::vector<Vec3d>& feet_forces, const Vec3d& external_force = Vec3d(0., 0., 0.));
+        void integrate(const std::vector<Vec3d>& feet_forces, const std::vector<bool>& feet_phases,
+            const Vec3d& external_force = Vec3d(0., 0., 0.));
         // integrating using desired COM acceleration (this solves a QP)
         // std::vector<Vec3d> integrate(const Vec6d &a_desired, const Vec3d
         // &external_force = Vec3d(0., 0., 0.), bool use_external_force_in_qp =

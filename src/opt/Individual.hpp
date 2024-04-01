@@ -12,9 +12,11 @@
 
 namespace pq {
     namespace opt {
+        Eigen::Vector4i feet_swing_counter;
+
         void integrate_step(const srbd::Vec6d& acc, const double dt, srbd::Vec3d& base_position,
             srbd::Vec3d& base_vel, srbd::RotMat& base_orientation, srbd::Vec3d& base_angular_vel,
-            std::vector<srbd::Vec3d>& feet_positions, std::vector<size_t>& feet_phases)
+            std::vector<srbd::Vec3d>& feet_positions, const Eigen::Vector4i& feet_stances)
         {
             // (Semi-implicit) Euler integration
             base_vel += acc.head(3) * dt;
@@ -23,11 +25,12 @@ namespace pq {
             base_angular_vel += acc.tail(3) * dt;
             base_orientation *= srbd::exp_angular(base_angular_vel * dt);
 
-            // Increase phase variables
-            double k_foot = 2. * (pq::Value::T - pq::Value::T_swing) * dt;
+            // Increase feet positions
             for (size_t i = 0; i < n_feet; i++) {
-                feet_phases[i]++;
-                if (((feet_phases[i] % pq::Value::T) == 0) && pq::Value::T_swing > 0) {
+                if (feet_stances[i] == 1 && feet_swing_counter[i] != 0) {
+                    double k_foot = 2. * feet_swing_counter[i] * dt;
+                    feet_swing_counter[i] = 0;
+
                     feet_positions[i].head(2) = pq::Value::feet_ref_positions[i].head(2)
                         + k_foot * (base_orientation.transpose() * base_vel).head(2);
                     feet_positions[i][2] = 0.;
@@ -41,7 +44,7 @@ namespace pq {
         }
 
         struct ControlIndividual {
-            static constexpr unsigned int dim = 12 * pq::Value::Param::Opt::horizon;
+            static constexpr unsigned int dim = 12 * pq::Value::Param::Opt::CEM::horizon;
 
             // Individual: [f11', f12', f13', f14', ..., fh1', fh2', fh3', fh4']  (size 3*4h = 12h)
             // where fij' is the force applied to the j-th foot at the i-th time step (size 3)
@@ -52,7 +55,8 @@ namespace pq {
                 srbd::RotMat base_orientation = pq::Value::init_base_orientation;
                 srbd::Vec3d base_angular_vel = pq::Value::init_base_angular_vel;
                 std::vector<srbd::Vec3d> feet_positions = pq::Value::init_feet_positions;
-                std::vector<size_t> feet_phases = pq::Value::init_feet_phases;
+
+                feet_swing_counter = Eigen::Vector4i::Zero();
 
                 double cost = 0;
 
@@ -62,26 +66,30 @@ namespace pq {
                         feet_forces.push_back(x.block<1, 3>(0, i + 3 * j).transpose());
                     }
 
+                    Eigen::Vector4i feet_stances = pq::Value::Param::Opt::CEM::tmp_curr_ga_ind.segment(4*i/12, 4);
+
                     srbd::Vec6d acc
                         = pq::opt::dynamic_model_predict(base_position, base_orientation,
-                            base_angular_vel, feet_positions, feet_phases, feet_forces);
+                            base_angular_vel, feet_positions, feet_stances, feet_forces);
 
-                    if (pq::Value::learned_model->trained()) {
+                    /*
+                    if (pq::Value::Param::NN::enable && pq::Value::learned_model->trained()) {
                         acc += pq::Value::learned_model->predict(
                             pq::opt::convert_to_nn_input(base_position, base_orientation,
                                 base_angular_vel, feet_positions, feet_phases, feet_forces));
                     }
+                    */
 
                     integrate_step(acc, pq::Value::Param::Sim::dt, base_position, base_vel,
-                        base_orientation, base_angular_vel, feet_positions, feet_phases);
+                        base_orientation, base_angular_vel, feet_positions, feet_stances);
 
-                    double distance = (pq::Value::Param::Opt::target - base_position).norm();
+                    double distance = (pq::Value::Param::Opt::CEM::target - base_position).norm();
 
                     cost += 5 * distance
-                        + dart::math::logMap(pq::Value::Param::Opt::target_orientation
+                        + dart::math::logMap(pq::Value::Param::Opt::CEM::target_orientation
                             * base_orientation.transpose())
-                              .norm()
-                        + 0.006 / distance * base_vel.norm() + base_angular_vel.norm();
+                              .norm();
+                    //+ 0.006 / distance * base_vel.norm() + base_angular_vel.norm();
                 }
 
                 return -cost;

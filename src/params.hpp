@@ -21,29 +21,44 @@ namespace pq {
                 constexpr double dt = 0.01; // simulation time step
             } // namespace Sim
             namespace Opt {
-                Eigen::Vector3d target = {1., 1., 0.2}; // target position for base
-                Eigen::Matrix3d target_orientation
-                    = Eigen::Matrix3d::Identity(); // target orientation for base
-                Eigen::Vector3d g_vec = {0.0, 0.0, -Constant::g}; // gravity vector
-                double mass = Constant::mass; // MPC mass
-                Eigen::Matrix<double, 3, 3> inertia
-                    = (Eigen::Matrix3d() << 0.88201174, -0.00137526, -0.00062895, -0.00137526,
-                        1.85452968, -0.00018922, -0.00062895, -0.00018922, 1.97309185)
-                          .finished(); // MPC inertia
-                Eigen::Matrix<double, 3, 3> inertia_inv = inertia.inverse(); // inverse of inertia
-                constexpr int steps = 80; // MPC steps
-                constexpr int horizon = 80; // MPC horizon (number of control inputs per individual)
-                constexpr int pop_size = 128; // population size
-                constexpr int num_elites = 8; // number of elites
-                constexpr double max_value
-                    = Constant::mass * Constant::g; // maximum control input force
-                Eigen::Vector3d min_value = (Eigen::Vector3d() << -max_value, -max_value, 0)
-                                                .finished(); // minimum control input force
-                constexpr double init_mu
-                    = 0.25 * Constant::mass * Constant::g; // initial mean for CEM
-                constexpr double init_std = 40; // initial standard deviation for CEM
+                namespace GA {
+                    constexpr int pop_size = 32; // population size
+                    constexpr int horizon = 50; // horizon
+                    constexpr int steps = 20; // number of steps
+                } // namespace GA
+                namespace CEM {
+                    Eigen::VectorXi tmp_curr_ga_ind; // TODO: remove this
+                    double tmp_best_cem_score; // TODO: remove this
+                    Eigen::VectorXd tmp_best_cem_ind; // TODO: remove this
+                    Eigen::VectorXi tmp_best_ga_ind; // TODO: remove this
+
+                    Eigen::Vector3d target = {1., 1., 0.2}; // target position for base
+                    Eigen::Matrix3d target_orientation
+                        = Eigen::Matrix3d::Identity(); // target orientation for base
+                    Eigen::Vector3d g_vec = {0.0, 0.0, -Constant::g}; // gravity vector
+                    double mass = Constant::mass; // MPC mass
+                    Eigen::Matrix<double, 3, 3> inertia
+                        = (Eigen::Matrix3d() << 0.88201174, -0.00137526, -0.00062895, -0.00137526,
+                            1.85452968, -0.00018922, -0.00062895, -0.00018922, 1.97309185)
+                              .finished(); // MPC inertia
+                    Eigen::Matrix<double, 3, 3> inertia_inv
+                        = inertia.inverse(); // inverse of inertia
+                    constexpr int steps = 5; // MPC steps
+                    constexpr int horizon
+                        = GA::horizon; // MPC horizon (number of control inputs per individual)
+                    constexpr int pop_size = 20; // population size
+                    constexpr int num_elites = 8; // number of elites
+                    constexpr double max_value
+                        = Constant::mass * Constant::g; // maximum control input force
+                    Eigen::Vector3d min_value = (Eigen::Vector3d() << -max_value, -max_value, 0)
+                                                    .finished(); // minimum control input force
+                    constexpr double init_mu
+                        = 0.25 * Constant::mass * Constant::g; // initial mean for CEM
+                    constexpr double init_std = 60; // initial standard deviation for CEM
+                } // namespace CEM
             } // namespace Opt
             namespace NN {
+                constexpr bool enable = false; // enable NN
                 constexpr int epochs = 10000; // number of epochs for training
                 constexpr int input_size
                     = 43; // input size for NN, TODO: see if base_vel should be included
