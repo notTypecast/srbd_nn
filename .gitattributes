@@ -1,1 +1,2 @@
-waf_tools/* linguist-vendored
+waf_tools/* linguist-vendored=true
+wscript linguist-vendored=true
